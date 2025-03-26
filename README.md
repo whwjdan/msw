@@ -13,6 +13,7 @@ src/
 └── app/                    # 애플리케이션 주요 코드
     └── layout.tsx          # MSW 초기화
 ```
+
 ## 2. 주요 파일 설정
 
 ### `src/mocks/config.ts`
@@ -33,6 +34,21 @@ export const MSW_CONFIG = {
 import { handlers } from './handlers'
 
 export const setUpMocks = async () => {
+  if면 IDE 재실행 해보기
+```
+### MSW library 설치
+```
+npm install msw --save-dev
+```
+### MockServiceWorker 생성
+```
+npx msw init public/ --save
+```
+### browser
+```
+import { handlers } from './handlers'
+
+export const setUpMocks = async () => {
   if (typeof window !== 'undefined') {
     const { setupWorker } = require("msw/browser");
     const worker = setupWorker(...handlers)
@@ -43,99 +59,79 @@ export const setUpMocks = async () => {
   }
 }
 ```
-- 브라우저 환경에서 MSW worker 설정
-- 개발 환경에서만 동작
+### handler
+```
+import { http } from 'msw'
+export const handlers = [ ...
+```
+### server
+```
+import { setupServer } from 'msw/node';
+import { handlers } from './handlers';
 
-### `src/app/layout.tsx`
+export const server = setupServer(...handlers);
+```
+
+### 테스트 설정
+1. `vitest.config.ts` 설정:
 ```typescript
-async function enableMocking() {
-  if (process.env.NODE_ENV !== 'development') {
-    return;
+import { defineConfig } from 'vitest/config'
+import path from 'path'
+
+export default defineConfig({
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+    },
+  },
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+    },
+  },
+})
+```
+
+2. `src/test/setup.ts` 설정:
+```typescript
+import { cleanup } from '@testing-library/react'
+import { afterEach } from 'vitest'
+
+afterEach(() => {
+  cleanup()
+})
+```
+
+### 테스트 실행 스크립트
+```json
+{
+  "scripts": {
+    "test": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:ui": "vitest --ui"
   }
-  const { setUpMocks } = await import('@/src/mocks/browser');
-  return setUpMocks();
-}
-```
-- 개발 환경에서 MSW 초기화
-- 서버 컴포넌트에서 안전하게 MSW 설정
-
-## 3. 사용 방법
-
-### 개발 환경에서 MSW 사용
-1. `config.ts`에서 모킹할 API 설정:
-```typescript
-USE_MSW: {
-  PROJECTS: true,    // 이 API는 MSW로 모킹
-  ART_STYLES: false  // 이 API는 실제 서버 사용
 }
 ```
 
-2. `handlers.ts`에서 모킹 응답 정의:
-```typescript
-export const handlers = [
-  if (!MSW_CONFIG.USE_MSW.PROJECTS) {
-  http.get('/api/projects', () => {
-    return HttpResponse.json({
-      // 모킹할 데이터
-    });
-  }),
-  // 다른 핸들러들...
-];
 ```
-2-1. 해당 코드로 핸들러에서 모킹 사용여부 결정
-```
-if (!MSW_CONFIG.USE_MSW.PROJECTS) {
-```
-
-3. 개발 서버 실행:
-```bash
-npm run dev
-```
-
-### 테스트 환경에서 MSW 사용
-1. 테스트 파일에서 MSW 서버 설정:
-```typescript
-import { setupServer } from 'msw/node'
-import { handlers } from './mocks/handlers'
-
-const server = setupServer(...handlers)
-
-beforeAll(() => server.listen())
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-```
-
-2. 테스트 실행:
-```bash
 npm test
 ```
 
-## 4. 주요 기능
+### 주요 테스트 기능
+1. Vitest
+   - 빠른 테스트 실행
+   - React 19 호환성
+   - Watch 모드 지원
+   - UI 모드 지원
 
-### 1. 선택적 API 모킹
-- `config.ts`를 통해 각 API별로 MSW 사용 여부 설정 가능
-- 실제 서버와 MSW를 혼합 사용 가능
+2. MSW 테스트 통합
+   - API 모킹
+   - 테스트 격리
+   - 핸들러 재설정
 
-### 2. 개발 환경 전용
-- MSW는 개발 환경에서만 동작
-- 프로덕션 환경에서는 자동으로 비활성화
-
-### 3. 테스트 지원
-- Vitest와 통합하여 테스트 환경에서 API 모킹 가능
-- 테스트별로 핸들러 재설정 가능
-
-## 5. 확인 방법
-
-### 개발 환경
-- 브라우저 개발자 도구의 Network 탭에서 요청 확인
-- MSW 로그는 Console 탭에서 확인 가능
-
-### 테스트 환경
-- 테스트 실행 시 MSW 서버 상태 로그 확인
-- 테스트 케이스에서 모킹된 응답 검증
-
-## 6. 주의사항
-
-1. MSW 설정 변경 후에는 개발 서버 재시작 필요
-2. `config.ts`의 설정이 `handlers.ts`의 구현과 일치해야 함
-3. 테스트 환경에서는 `server.ts`의 설정이 사용됨
+3. 테스트 커버리지
+   - 코드 커버리지 리포트
+   - HTML, JSON, 텍스트 형식 지원
